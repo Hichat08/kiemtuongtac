@@ -23,7 +23,8 @@ const maskEmail = (email: string) => {
     return email;
   }
 
-  const visibleName = name.length <= 2 ? `${name[0] ?? ""}*` : `${name.slice(0, 2)}***`;
+  const visibleName =
+    name.length <= 2 ? `${name[0] ?? ""}*` : `${name.slice(0, 2)}***`;
   return `${visibleName}@${domain}`;
 };
 
@@ -98,7 +99,10 @@ export function EmailVerificationForm() {
     }
   };
 
-  const handleKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    event: KeyboardEvent<HTMLInputElement>,
+  ) => {
     if (event.key === "Backspace" && !otpValues[index] && index > 0) {
       focusInput(index - 1);
     }
@@ -116,7 +120,10 @@ export function EmailVerificationForm() {
 
   const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
     event.preventDefault();
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    const pasted = event.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
 
     if (!pasted) {
       return;
@@ -157,7 +164,9 @@ export function EmailVerificationForm() {
     const isSuccess = await verifyEmail(email, otpCode);
 
     if (isSuccess) {
-      navigate(getRoleHomePath(useAuthStore.getState().user?.role), { replace: true });
+      navigate(getRoleHomePath(useAuthStore.getState().user?.role), {
+        replace: true,
+      });
     }
   };
 
@@ -185,11 +194,13 @@ export function EmailVerificationForm() {
               Xác thực tài khoản
             </h1>
             <p className="mt-4 text-[15px] font-medium leading-7 text-[#726a83]">
-              Mã xác nhận gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng nhập mã
-              để kích hoạt tài khoản.
+              Nhập mã PIN 6 chữ số mà bạn nhận được khi đăng ký để kích hoạt tài
+              khoản.
             </p>
             {email ? (
-              <p className="mt-2 text-sm font-semibold text-[#7b19d8]">{maskEmail(email)}</p>
+              <p className="mt-2 text-sm font-semibold text-[#7b19d8]">
+                {maskEmail(email)}
+              </p>
             ) : null}
           </div>
 
@@ -224,14 +235,16 @@ export function EmailVerificationForm() {
               </button>
 
               <div className="text-center text-sm font-medium text-[#726a83]">
-                Không nhận được mã?
+                Quên mã PIN?
                 <button
                   type="button"
                   onClick={handleResendCode}
                   disabled={loading || countdown > 0}
                   className="ml-1 font-semibold text-[#7b19d8] transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  {countdown > 0 ? `Gửi lại mã sau ${countdown}s` : "Gửi lại mã"}
+                  {countdown > 0
+                    ? `Tạo mã mới sau ${countdown}s`
+                    : "Tạo mã mới"}
                 </button>
               </div>
             </div>
@@ -247,7 +260,8 @@ export function EmailVerificationForm() {
                   Bảo mật tài khoản
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[#726a83]">
-                  Mã OTP giúp bảo vệ tài khoản của bạn khỏi những truy cập trái phép.
+                  Mã PIN giúp bảo vệ tài khoản của bạn khỏi những truy cập trái
+                  phép.
                 </p>
               </div>
             </div>

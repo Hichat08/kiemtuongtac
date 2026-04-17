@@ -63,10 +63,13 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: ["local"],
     },
-    googleId: {
-      type: String,
-      sparse: true,
-      unique: true,
+    registrationPin: {
+      type: String, // 6-digit PIN (not hashed, displayed to user during signup)
+      default: "",
+    },
+    registrationPinExpiresAt: {
+      type: Date,
+      default: null,
     },
     referredBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -173,21 +176,22 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-userSchema.statics.generateUniqueAccountId = async function generateUniqueAccountId() {
-  for (let attempt = 0; attempt < 25; attempt += 1) {
-    const candidate = createRandomAccountId();
-    const exists = await this.exists({ accountId: candidate });
+userSchema.statics.generateUniqueAccountId =
+  async function generateUniqueAccountId() {
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const candidate = createRandomAccountId();
+      const exists = await this.exists({ accountId: candidate });
 
-    if (!exists) {
-      return candidate;
+      if (!exists) {
+        return candidate;
+      }
     }
-  }
 
-  throw new Error("Không thể tạo ID tài khoản 8 số duy nhất.");
-};
+    throw new Error("Không thể tạo ID tài khoản 8 số duy nhất.");
+  };
 
 userSchema.methods.ensureAccountId = async function ensureAccountId() {
   if (this.accountId) {

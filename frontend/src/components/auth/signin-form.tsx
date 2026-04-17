@@ -1,14 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Mail } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import { toast } from "sonner";
+import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 
-import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { cn } from "@/lib/utils";
-import { persistLockedAccountSnapshot } from "@/lib/account-lock";
 import { getRoleHomePath } from "@/lib/role-routing";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -35,7 +32,6 @@ const inputClassName =
 
 export function SigninForm() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { signIn, loading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const rememberedCredential = getRememberedCredential();
@@ -68,28 +64,11 @@ export function SigninForm() {
     const isSuccess = await signIn(normalizedCredential, password);
 
     if (isSuccess) {
-      navigate(getRoleHomePath(useAuthStore.getState().user?.role), { replace: true });
+      navigate(getRoleHomePath(useAuthStore.getState().user?.role), {
+        replace: true,
+      });
     }
   };
-
-  useEffect(() => {
-    const googleError = searchParams.get("google_error");
-
-    if (!googleError) {
-      return;
-    }
-
-    if (googleError === "account_locked") {
-      persistLockedAccountSnapshot({
-        message:
-          "Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ hỗ trợ để được kiểm tra.",
-      });
-      navigate("/account-locked", { replace: true });
-      return;
-    }
-
-    toast.error("Đăng nhập Google không thành công. Kiểm tra lại cấu hình callback/origin.");
-  }, [navigate, searchParams]);
 
   const isBusy = isSubmitting || loading;
 
@@ -104,10 +83,7 @@ export function SigninForm() {
         </p>
       </div>
 
-      <form
-        className="space-y-6"
-        onSubmit={handleSubmit(onSubmit)}
-      >
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label
             htmlFor="credential"
@@ -124,7 +100,7 @@ export function SigninForm() {
               className={cn(
                 inputClassName,
                 errors.credential &&
-                  "border-[#f0bfd8] bg-[#fff7fb] focus:border-[#d8589f]/40 focus:ring-[#d8589f]/10"
+                  "border-[#f0bfd8] bg-[#fff7fb] focus:border-[#d8589f]/40 focus:ring-[#d8589f]/10",
               )}
               {...register("credential")}
             />
@@ -160,7 +136,7 @@ export function SigninForm() {
                 inputClassName,
                 "pr-12",
                 errors.password &&
-                  "border-[#f0bfd8] bg-[#fff7fb] focus:border-[#d8589f]/40 focus:ring-[#d8589f]/10"
+                  "border-[#f0bfd8] bg-[#fff7fb] focus:border-[#d8589f]/40 focus:ring-[#d8589f]/10",
               )}
               {...register("password")}
             />
@@ -170,7 +146,11 @@ export function SigninForm() {
               onClick={() => setShowPassword((value) => !value)}
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
-              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+              {showPassword ? (
+                <EyeOff className="size-5" />
+              ) : (
+                <Eye className="size-5" />
+              )}
             </button>
           </div>
           {errors.password && (
@@ -200,21 +180,6 @@ export function SigninForm() {
         </div>
       </form>
 
-      <div className="relative py-2">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[#e8e0f3]"></div>
-        </div>
-        <div className="relative flex justify-center text-xs uppercase tracking-[0.22em]">
-          <span className="bg-[#f7f4ff] px-4 font-semibold text-[#a89fb9]">
-            Hoặc đăng nhập với
-          </span>
-        </div>
-      </div>
-
-      <div className="flex justify-center">
-        <GoogleAuthButton disabled={isBusy} />
-      </div>
-
       <div className="pt-2 text-center">
         <p className="text-[#726a83]">
           Chưa có tài khoản?
@@ -226,7 +191,6 @@ export function SigninForm() {
           </Link>
         </p>
       </div>
-
     </div>
   );
 }

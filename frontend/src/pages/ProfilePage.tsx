@@ -4,6 +4,7 @@ import HelpCenterDialog from "@/components/profile/HelpCenterDialog";
 import InviteFriendsDialog from "@/components/profile/InviteFriendsDialog";
 import NotificationCenterDialog from "@/components/profile/NotificationCenterDialog";
 import NotificationSettingsDialog from "@/components/profile/NotificationSettingsDialog";
+import { PinSettingsDialog } from "@/components/profile/PinSettingsDialog";
 import ProfileDialog from "@/components/profile/ProfileDialog";
 import SocialLinksDialog from "@/components/profile/SocialLinksDialog";
 import TaskHistoryDialog from "@/components/profile/TaskHistoryDialog";
@@ -47,19 +48,17 @@ const ProfilePage = () => {
   const { conversations, fetchConversations } = useChatStore();
   const { currentBalance } = useUserFinancialData(user?.accountId);
   const { unreadCount } = useUserNotificationSummary();
-  const {
-    friends,
-    getFriends,
-    getAllFriendRequests,
-  } = useFriendStore();
+  const { friends, getFriends, getAllFriendRequests } = useFriendStore();
   const { onlineUsers } = useSocketStore();
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [socialLinksOpen, setSocialLinksOpen] = useState(false);
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
   const [inviteFriendsOpen, setInviteFriendsOpen] = useState(false);
-  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
+  const [notificationSettingsOpen, setNotificationSettingsOpen] =
+    useState(false);
   const [helpCenterOpen, setHelpCenterOpen] = useState(false);
+  const [pinSettingsOpen, setPinSettingsOpen] = useState(false);
 
   useEffect(() => {
     const hydrateProfile = async () => {
@@ -146,6 +145,13 @@ const ProfilePage = () => {
       onClick: () => setNotificationSettingsOpen(true),
     },
     {
+      label: "Quản lý mã PIN",
+      description: "Tạo mã PIN mới để xác minh tài khoản",
+      icon: ShieldCheck,
+      iconClassName: "bg-[#eef1ff] text-[#5868ff]",
+      onClick: () => setPinSettingsOpen(true),
+    },
+    {
       label: "Trung tâm trợ giúp",
       description: "Trao đổi nhanh với bộ phận hỗ trợ trong chat",
       icon: CircleHelp,
@@ -155,12 +161,7 @@ const ProfilePage = () => {
   ];
 
   if (user?.role === "admin") {
-    return (
-      <Navigate
-        to="/admin"
-        replace
-      />
-    );
+    return <Navigate to="/admin" replace />;
   }
 
   return (
@@ -204,10 +205,7 @@ const ProfilePage = () => {
             <div className="flex flex-col items-center text-center">
               <div className="relative mb-4 sm:mb-5">
                 <Avatar className="size-24 ring-[3px] ring-[#e6dbf8] shadow-[0_18px_40px_-26px_rgba(123,25,216,0.4)] sm:size-28 sm:ring-4">
-                  <AvatarImage
-                    src={user?.avatarUrl}
-                    alt={user?.displayName}
-                  />
+                  <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
                   <AvatarFallback className="bg-gradient-primary text-2xl font-bold text-white sm:text-3xl">
                     {user?.displayName?.charAt(0) ?? "K"}
                   </AvatarFallback>
@@ -250,10 +248,9 @@ const ProfilePage = () => {
               </div>
 
               <p className="mt-3 max-w-sm text-[13px] leading-6 text-[#7e7691] dark:text-[#c8b5e8] sm:mt-4 sm:text-sm sm:leading-7">
-                Kết nối, hoàn thành nhiệm vụ và gia tăng thu nhập của bạn mỗi ngày cùng
-                cộng đồng Kiếm Tương Tác.
+                Kết nối, hoàn thành nhiệm vụ và gia tăng thu nhập của bạn mỗi
+                ngày cùng cộng đồng Kiếm Tương Tác.
               </p>
-
             </div>
           </section>
 
@@ -314,7 +311,8 @@ const ProfilePage = () => {
                               Thêm tài khoản rút tiền
                             </p>
                             <p className="text-[11px] leading-5 text-[#8d84a1] dark:text-[#bdaad6] sm:text-xs">
-                              Liên kết tài khoản ngân hàng để dùng khi rút tiền từ ví
+                              Liên kết tài khoản ngân hàng để dùng khi rút tiền
+                              từ ví
                             </p>
                           </div>
                         </div>
@@ -323,49 +321,49 @@ const ProfilePage = () => {
                       </Link>
 
                       <button
-                      type="button"
-                      onClick={option.onClick}
-                      className={`flex w-full items-center justify-between rounded-[1.2rem] px-4 py-3.5 text-left transition-all duration-200 active:scale-[0.985] sm:rounded-[1.4rem] sm:p-4 ${
-                        option.highlight
-                          ? "bg-[#f7f3ff] shadow-[0_20px_50px_-38px_rgba(123,25,216,0.28)]"
-                          : "bg-white/88 shadow-[0_18px_48px_-38px_rgba(123,25,216,0.3)] dark:bg-white/8"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div
-                          className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${option.iconClassName} sm:size-12 sm:rounded-2xl`}
-                        >
-                          <Icon className="size-4.5 sm:size-5" />
-                        </div>
-                        <div>
-                          <p
-                            className={`text-sm font-semibold sm:text-base ${
-                              option.highlight
-                                ? "text-[#7b19d8]"
-                                : "text-slate-900 dark:text-white"
-                            }`}
-                          >
-                            {option.label}
-                          </p>
-                          <p
-                            className={`text-[11px] leading-5 sm:text-xs ${
-                              option.highlight
-                                ? "text-[#8f72bb]"
-                                : "text-[#8d84a1] dark:text-[#bdaaD6]"
-                            }`}
-                          >
-                            {option.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <ChevronRight
-                        className={`size-4 ${
+                        type="button"
+                        onClick={option.onClick}
+                        className={`flex w-full items-center justify-between rounded-[1.2rem] px-4 py-3.5 text-left transition-all duration-200 active:scale-[0.985] sm:rounded-[1.4rem] sm:p-4 ${
                           option.highlight
-                            ? "text-[#7b19d8]"
-                            : "text-[#b7aec7] dark:text-[#d5c5ec]"
-                            }`}
-                      />
+                            ? "bg-[#f7f3ff] shadow-[0_20px_50px_-38px_rgba(123,25,216,0.28)]"
+                            : "bg-white/88 shadow-[0_18px_48px_-38px_rgba(123,25,216,0.3)] dark:bg-white/8"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div
+                            className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${option.iconClassName} sm:size-12 sm:rounded-2xl`}
+                          >
+                            <Icon className="size-4.5 sm:size-5" />
+                          </div>
+                          <div>
+                            <p
+                              className={`text-sm font-semibold sm:text-base ${
+                                option.highlight
+                                  ? "text-[#7b19d8]"
+                                  : "text-slate-900 dark:text-white"
+                              }`}
+                            >
+                              {option.label}
+                            </p>
+                            <p
+                              className={`text-[11px] leading-5 sm:text-xs ${
+                                option.highlight
+                                  ? "text-[#8f72bb]"
+                                  : "text-[#8d84a1] dark:text-[#bdaaD6]"
+                              }`}
+                            >
+                              {option.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <ChevronRight
+                          className={`size-4 ${
+                            option.highlight
+                              ? "text-[#7b19d8]"
+                              : "text-[#b7aec7] dark:text-[#d5c5ec]"
+                          }`}
+                        />
                       </button>
                     </div>
                   );
@@ -430,7 +428,9 @@ const ProfilePage = () => {
                   <LogOut className="size-4.5 sm:size-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-[#d4525d] dark:text-[#ff9fb1] sm:text-base">Đăng xuất</p>
+                  <p className="text-sm font-bold text-[#d4525d] dark:text-[#ff9fb1] sm:text-base">
+                    Đăng xuất
+                  </p>
                   <p className="text-[11px] leading-5 text-[#c57584] dark:text-[#f0b5c1] sm:text-xs">
                     Kết thúc phiên hiện tại và quay về màn đăng nhập
                   </p>
@@ -450,20 +450,11 @@ const ProfilePage = () => {
         />
       ) : null}
 
-      <ProfileDialog
-        open={profileOpen}
-        setOpen={setProfileOpen}
-      />
+      <ProfileDialog open={profileOpen} setOpen={setProfileOpen} />
 
-      <SocialLinksDialog
-        open={socialLinksOpen}
-        setOpen={setSocialLinksOpen}
-      />
+      <SocialLinksDialog open={socialLinksOpen} setOpen={setSocialLinksOpen} />
 
-      <TaskHistoryDialog
-        open={taskHistoryOpen}
-        setOpen={setTaskHistoryOpen}
-      />
+      <TaskHistoryDialog open={taskHistoryOpen} setOpen={setTaskHistoryOpen} />
 
       <InviteFriendsDialog
         open={inviteFriendsOpen}
@@ -475,10 +466,14 @@ const ProfilePage = () => {
         setOpen={setNotificationSettingsOpen}
       />
 
-      <HelpCenterDialog
-        open={helpCenterOpen}
-        setOpen={setHelpCenterOpen}
-      />
+      {pinSettingsOpen ? (
+        <PinSettingsDialog
+          open={pinSettingsOpen}
+          setOpen={setPinSettingsOpen}
+        />
+      ) : null}
+
+      <HelpCenterDialog open={helpCenterOpen} setOpen={setHelpCenterOpen} />
     </>
   );
 };

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import { findSupportedBank } from "../constants/supportedBanks.js";
 import AdminDepositAccount from "../models/AdminDepositAccount.js";
@@ -11,7 +12,11 @@ const normalizeAccountId = (value) => normalizeText(value).replace(/\D/g, "");
 const normalizePhone = (value) => normalizeText(value).replace(/\s+/g, "");
 const PROFILE_PHONE_REGEX = /^[0-9+().-]{8,20}$/;
 const REFERRAL_REWARD = 10000;
-const NOTIFICATION_ACTIVITY_KEYS = ["newTasks", "reviewStatus", "balanceChanges"];
+const NOTIFICATION_ACTIVITY_KEYS = [
+  "newTasks",
+  "reviewStatus",
+  "balanceChanges",
+];
 const NOTIFICATION_SYSTEM_KEYS = ["adminMessages", "promotions"];
 
 const buildDefaultNotificationPreferences = () => ({
@@ -35,11 +40,15 @@ const serializeNotificationPreferences = (user) => {
   return {
     activity: {
       newTasks: preferences.activity?.newTasks ?? defaults.activity.newTasks,
-      reviewStatus: preferences.activity?.reviewStatus ?? defaults.activity.reviewStatus,
-      balanceChanges: preferences.activity?.balanceChanges ?? defaults.activity.balanceChanges,
+      reviewStatus:
+        preferences.activity?.reviewStatus ?? defaults.activity.reviewStatus,
+      balanceChanges:
+        preferences.activity?.balanceChanges ??
+        defaults.activity.balanceChanges,
     },
     system: {
-      adminMessages: preferences.system?.adminMessages ?? defaults.system.adminMessages,
+      adminMessages:
+        preferences.system?.adminMessages ?? defaults.system.adminMessages,
       promotions: preferences.system?.promotions ?? defaults.system.promotions,
     },
     emailDigest: preferences.emailDigest ?? defaults.emailDigest,
@@ -47,7 +56,8 @@ const serializeNotificationPreferences = (user) => {
   };
 };
 
-const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const normalizeNotificationPreferencesUpdate = (payload, currentSettings) => {
   if (!isPlainObject(payload)) {
@@ -185,13 +195,17 @@ const serializeAdminDepositAccount = (account) => ({
 });
 
 const reconcileAdminDepositAccounts = async () => {
-  const accounts = await AdminDepositAccount.find().sort({ createdAt: 1, updatedAt: -1 });
+  const accounts = await AdminDepositAccount.find().sort({
+    createdAt: 1,
+    updatedAt: -1,
+  });
 
   if (!accounts.length) {
     return [];
   }
 
-  let activeAccount = accounts.find((account) => account.status === "active") ?? null;
+  let activeAccount =
+    accounts.find((account) => account.status === "active") ?? null;
 
   if (!activeAccount) {
     accounts[0].status = "active";
@@ -199,7 +213,9 @@ const reconcileAdminDepositAccounts = async () => {
   }
 
   const primaryAccount =
-    accounts.find((account) => account.status === "active" && account.isPrimary) ?? activeAccount;
+    accounts.find(
+      (account) => account.status === "active" && account.isPrimary,
+    ) ?? activeAccount;
 
   await Promise.all(
     accounts.map(async (account) => {
@@ -216,7 +232,7 @@ const reconcileAdminDepositAccounts = async () => {
       if (account.isModified()) {
         await account.save();
       }
-    })
+    }),
   );
 
   return accounts.map((account) => account.toObject());
@@ -260,11 +276,13 @@ export const searchUserByUsername = async (req, res) => {
     const { username } = req.query;
 
     if (!username || username.trim() === "") {
-      return res.status(400).json({ message: "Cần cung cấp username trong query." });
+      return res
+        .status(400)
+        .json({ message: "Cần cung cấp username trong query." });
     }
 
     const user = await User.findOne({ username }).select(
-      "_id accountId displayName username avatarUrl"
+      "_id accountId displayName username avatarUrl",
     );
 
     return res.status(200).json({ user });
@@ -279,7 +297,9 @@ export const getInternalTransferRecipient = async (req, res) => {
     const accountId = normalizeAccountId(req.query?.accountId);
 
     if (!accountId) {
-      return res.status(400).json({ message: "Cần cung cấp số tài khoản nội bộ của người nhận." });
+      return res
+        .status(400)
+        .json({ message: "Cần cung cấp số tài khoản nội bộ của người nhận." });
     }
 
     if (!/^\d{8}$/.test(accountId)) {
@@ -296,7 +316,9 @@ export const getInternalTransferRecipient = async (req, res) => {
     }).select("_id accountId displayName username avatarUrl");
 
     if (!recipient) {
-      return res.status(404).json({ message: "Không tìm thấy người nhận nội bộ." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy người nhận nội bộ." });
     }
 
     return res.status(200).json({
@@ -304,7 +326,9 @@ export const getInternalTransferRecipient = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi tra cứu người nhận chuyển nội bộ", error);
-    return res.status(500).json({ message: "Không thể tra cứu người nhận nội bộ." });
+    return res
+      .status(500)
+      .json({ message: "Không thể tra cứu người nhận nội bộ." });
   }
 };
 
@@ -327,7 +351,7 @@ export const uploadAvatar = async (req, res) => {
       },
       {
         new: true,
-      }
+      },
     ).select("avatarUrl");
 
     if (!updatedUser.avatarUrl) {
@@ -350,11 +374,15 @@ export const updateMyProfile = async (req, res) => {
     };
 
     if (!payload.displayName) {
-      return res.status(400).json({ message: "Vui lòng nhập họ và tên hiển thị." });
+      return res
+        .status(400)
+        .json({ message: "Vui lòng nhập họ và tên hiển thị." });
     }
 
     if (payload.displayName.length > 100) {
-      return res.status(400).json({ message: "Họ và tên không được vượt quá 100 ký tự." });
+      return res
+        .status(400)
+        .json({ message: "Họ và tên không được vượt quá 100 ký tự." });
     }
 
     if (payload.phone && !PROFILE_PHONE_REGEX.test(payload.phone)) {
@@ -364,7 +392,9 @@ export const updateMyProfile = async (req, res) => {
     }
 
     if (payload.bio.length > 500) {
-      return res.status(400).json({ message: "Giới thiệu không được vượt quá 500 ký tự." });
+      return res
+        .status(400)
+        .json({ message: "Giới thiệu không được vượt quá 500 ký tự." });
     }
 
     const update = {
@@ -386,7 +416,9 @@ export const updateMyProfile = async (req, res) => {
     }).select("-hashedPassword");
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản để cập nhật." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản để cập nhật." });
     }
 
     return res.status(200).json({
@@ -395,16 +427,22 @@ export const updateMyProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi cập nhật thông tin tài khoản", error);
-    return res.status(500).json({ message: "Không thể cập nhật thông tin tài khoản." });
+    return res
+      .status(500)
+      .json({ message: "Không thể cập nhật thông tin tài khoản." });
   }
 };
 
 export const getMyNotificationSettings = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("notificationPreferences role");
+    const user = await User.findById(req.user._id).select(
+      "notificationPreferences role",
+    );
 
     if (!user || user.role === "admin") {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản người dùng." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản người dùng." });
     }
 
     return res.status(200).json({
@@ -412,20 +450,29 @@ export const getMyNotificationSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi lấy cài đặt thông báo của user", error);
-    return res.status(500).json({ message: "Không thể tải cài đặt thông báo." });
+    return res
+      .status(500)
+      .json({ message: "Không thể tải cài đặt thông báo." });
   }
 };
 
 export const updateMyNotificationSettings = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("notificationPreferences role");
+    const user = await User.findById(req.user._id).select(
+      "notificationPreferences role",
+    );
 
     if (!user || user.role === "admin") {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản người dùng." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản người dùng." });
     }
 
     const currentSettings = serializeNotificationPreferences(user);
-    const { error, settings } = normalizeNotificationPreferencesUpdate(req.body, currentSettings);
+    const { error, settings } = normalizeNotificationPreferencesUpdate(
+      req.body,
+      currentSettings,
+    );
 
     if (error) {
       return res.status(400).json({ message: error });
@@ -440,7 +487,9 @@ export const updateMyNotificationSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi cập nhật cài đặt thông báo của user", error);
-    return res.status(500).json({ message: "Không thể cập nhật cài đặt thông báo." });
+    return res
+      .status(500)
+      .json({ message: "Không thể cập nhật cài đặt thông báo." });
   }
 };
 
@@ -451,11 +500,15 @@ export const getMyBankAccounts = async (req, res) => {
       .lean();
 
     return res.status(200).json({
-      accounts: accounts.map((account) => serializeBankAccount(account, req.user)),
+      accounts: accounts.map((account) =>
+        serializeBankAccount(account, req.user),
+      ),
     });
   } catch (error) {
     console.error("Lỗi khi lấy danh sách tài khoản ngân hàng của user", error);
-    return res.status(500).json({ message: "Không thể tải danh sách tài khoản ngân hàng." });
+    return res
+      .status(500)
+      .json({ message: "Không thể tải danh sách tài khoản ngân hàng." });
   }
 };
 
@@ -472,7 +525,9 @@ export const getDepositReceivingAccount = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi lấy tài khoản nhận tiền nạp của admin", error);
-    return res.status(500).json({ message: "Không thể tải tài khoản nhận tiền nạp." });
+    return res
+      .status(500)
+      .json({ message: "Không thể tải tài khoản nhận tiền nạp." });
   }
 };
 
@@ -483,10 +538,14 @@ export const getMyReferralOverview = async (req, res) => {
       role: { $ne: "admin" },
     })
       .sort({ createdAt: -1, updatedAt: -1 })
-      .select("_id displayName username avatarUrl emailVerified createdAt updatedAt")
+      .select(
+        "_id displayName username avatarUrl emailVerified createdAt updatedAt",
+      )
       .lean();
 
-    const verifiedInvited = invitees.filter((invitee) => invitee.emailVerified).length;
+    const verifiedInvited = invitees.filter(
+      (invitee) => invitee.emailVerified,
+    ).length;
     const pendingInvited = invitees.length - verifiedInvited;
 
     return res.status(200).json({
@@ -502,7 +561,9 @@ export const getMyReferralOverview = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi tải tổng quan mời bạn bè", error);
-    return res.status(500).json({ message: "Không thể tải danh sách mời bạn bè." });
+    return res
+      .status(500)
+      .json({ message: "Không thể tải danh sách mời bạn bè." });
   }
 };
 
@@ -526,7 +587,8 @@ export const submitBankAccountVerificationRequest = async (req, res) => {
       !payload.branch
     ) {
       return res.status(400).json({
-        message: "Thiếu thông tin bắt buộc để gửi yêu cầu xác minh tài khoản ngân hàng.",
+        message:
+          "Thiếu thông tin bắt buộc để gửi yêu cầu xác minh tài khoản ngân hàng.",
       });
     }
 
@@ -537,7 +599,8 @@ export const submitBankAccountVerificationRequest = async (req, res) => {
 
     if (!supportedBank) {
       return res.status(400).json({
-        message: "Ứng dụng hiện chỉ hỗ trợ 31 ngân hàng trong danh mục cấu hình.",
+        message:
+          "Ứng dụng hiện chỉ hỗ trợ 31 ngân hàng trong danh mục cấu hình.",
       });
     }
 
@@ -581,7 +644,7 @@ export const submitBankAccountVerificationRequest = async (req, res) => {
         },
         {
           $set: { primary: false },
-        }
+        },
       );
     }
 
@@ -593,6 +656,35 @@ export const submitBankAccountVerificationRequest = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi gửi yêu cầu xác minh tài khoản ngân hàng", error);
-    return res.status(500).json({ message: "Không thể gửi yêu cầu xác minh tài khoản ngân hàng." });
+    return res
+      .status(500)
+      .json({ message: "Không thể gửi yêu cầu xác minh tài khoản ngân hàng." });
+  }
+};
+
+export const regenerateRegistrationPin = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản." });
+    }
+
+    // Generate new 6-digit PIN
+    const newPin = crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.registrationPin = newPin;
+    user.registrationPinExpiresAt = expiresAt;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Mã PIN mới đã được tạo.",
+      pin: newPin,
+      expiresIn: Math.round((expiresAt.getTime() - Date.now()) / 1000),
+    });
+  } catch (error) {
+    console.error("Lỗi khi tạo lại mã PIN", error);
+    return res.status(500).json({ message: "Không thể tạo lại mã PIN." });
   }
 };

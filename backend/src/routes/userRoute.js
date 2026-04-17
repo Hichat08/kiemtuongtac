@@ -12,6 +12,7 @@ import {
   updateMyNotificationSettings,
   updateMyProfile,
   uploadAvatar,
+  regenerateRegistrationPin,
 } from "../controllers/userController.js";
 import { getUserFinanceSettings } from "../controllers/financeSettingsController.js";
 import { taskProofUpload, upload } from "../middlewares/uploadMiddleware.js";
@@ -40,6 +41,7 @@ router.get("/lock-status", getLockStatus);
 router.patch("/me", updateMyProfile);
 router.get("/notification-settings", getMyNotificationSettings);
 router.patch("/notification-settings", updateMyNotificationSettings);
+router.post("/registration-pin/regenerate", regenerateRegistrationPin);
 router.get("/bank-accounts", getMyBankAccounts);
 router.get("/referrals", getMyReferralOverview);
 router.get("/deposit-account", getDepositReceivingAccount);
@@ -50,15 +52,25 @@ router.get("/broadcast-notifications", getUserBroadcastNotifications);
 router.get("/task-submissions", getUserTaskHistory);
 router.get("/tasks", getUserTasks);
 router.get("/tasks/:id", getUserTaskDetail);
-router.post("/tasks/:id/submissions", taskProofUpload.single("screenshot"), submitUserTaskSubmission);
+router.post(
+  "/tasks/:id/submissions",
+  taskProofUpload.single("screenshot"),
+  submitUserTaskSubmission,
+);
 router.post("/deposit-requests", createUserDepositRequest);
 router.get("/deposit-requests/:id", getUserDepositRequest);
-router.post("/withdrawal-requests/request-code", requestUserWithdrawalVerificationCode);
+router.post(
+  "/withdrawal-requests/request-code",
+  requestUserWithdrawalVerificationCode,
+);
 router.post("/withdrawal-requests", createUserWithdrawalRequest);
 router.get("/withdrawal-requests/:id", getUserWithdrawalRequest);
 router.get("/internal-transfer-recipient", getInternalTransferRecipient);
 router.get("/search", searchUserByUsername);
-router.post("/bank-accounts/verification-request", submitBankAccountVerificationRequest);
+router.post(
+  "/bank-accounts/verification-request",
+  submitBankAccountVerificationRequest,
+);
 router.post("/uploadAvatar", upload.single("file"), uploadAvatar);
 
 export default router;

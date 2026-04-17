@@ -1,12 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AtSign, Eye, EyeOff, Gift, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import {
+  AtSign,
+  Eye,
+  EyeOff,
+  Gift,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { persistLockedAccountSnapshot } from "@/lib/account-lock";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -21,7 +28,7 @@ const signUpSchema = z
       .min(3, "Tên đăng nhập phải có ít nhất 3 ký tự")
       .regex(
         /^[a-zA-Z0-9._]+$/,
-        "Tên đăng nhập chỉ được chứa chữ, số, dấu chấm hoặc gạch dưới"
+        "Tên đăng nhập chỉ được chứa chữ, số, dấu chấm hoặc gạch dưới",
       ),
     password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
     confirmPassword: z.string().min(6, "Vui lòng nhập lại mật khẩu"),
@@ -67,30 +74,6 @@ export function SignupForm() {
     setValue("referralCode", referralCodeFromQuery);
   }, [referralCodeFromQuery, setValue]);
 
-  useEffect(() => {
-    const googleError = searchParams.get("google_error");
-
-    if (!googleError) {
-      return;
-    }
-
-    if (googleError === "account_locked") {
-      persistLockedAccountSnapshot({
-        message:
-          "Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ hỗ trợ để được kiểm tra.",
-      });
-      navigate("/account-locked", { replace: true });
-      return;
-    }
-
-    if (googleError === "invalid_referral") {
-      toast.error("Mã giới thiệu không hợp lệ. Vui lòng kiểm tra lại người mời.");
-      return;
-    }
-
-    toast.error("Đăng ký Google không thành công. Vui lòng thử lại.");
-  }, [navigate, searchParams]);
-
   const onSubmit = async ({
     fullName,
     email,
@@ -132,10 +115,7 @@ export function SignupForm() {
         </p>
       </div>
 
-      <form
-        className="space-y-5"
-        onSubmit={handleSubmit(onSubmit)}
-      >
+      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-1.5">
           <label
             htmlFor="fullName"
@@ -151,7 +131,7 @@ export function SignupForm() {
             className={cn(
               inputClassName,
               errors.fullName &&
-                "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18"
+                "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18",
             )}
             {...register("fullName")}
           />
@@ -177,13 +157,15 @@ export function SignupForm() {
                 inputClassName,
                 "pr-14",
                 errors.email &&
-                  "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18"
+                  "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18",
               )}
               {...register("email")}
             />
             <Mail className="pointer-events-none absolute right-5 top-1/2 size-5 -translate-y-1/2 text-[#c0b7cf]" />
           </div>
-          {errors.email && <p className="auth-field-error">{errors.email.message}</p>}
+          {errors.email && (
+            <p className="auth-field-error">{errors.email.message}</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -203,7 +185,7 @@ export function SignupForm() {
                 inputClassName,
                 "pr-14",
                 errors.username &&
-                  "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18"
+                  "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18",
               )}
               {...register("username")}
             />
@@ -232,7 +214,7 @@ export function SignupForm() {
                   inputClassName,
                   "pr-14",
                   errors.password &&
-                    "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18"
+                    "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18",
                 )}
                 {...register("password")}
               />
@@ -242,7 +224,11 @@ export function SignupForm() {
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
-                {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                {showPassword ? (
+                  <EyeOff className="size-5" />
+                ) : (
+                  <Eye className="size-5" />
+                )}
               </button>
             </div>
             {errors.password && (
@@ -267,14 +253,16 @@ export function SignupForm() {
                   inputClassName,
                   "pr-14",
                   errors.confirmPassword &&
-                    "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18"
+                    "bg-[#fff7fb] ring-[1.5px] ring-[#efbfd7] focus:ring-[#d8589f]/18",
                 )}
                 {...register("confirmPassword")}
               />
               <LockKeyhole className="pointer-events-none absolute right-5 top-1/2 size-5 -translate-y-1/2 text-[#c0b7cf]" />
             </div>
             {errors.confirmPassword && (
-              <p className="auth-field-error">{errors.confirmPassword.message}</p>
+              <p className="auth-field-error">
+                {errors.confirmPassword.message}
+              </p>
             )}
           </div>
         </div>
@@ -306,8 +294,15 @@ export function SignupForm() {
               {...register("acceptTerms")}
             />
             <span className="leading-6">
-              Tôi đồng ý với <span className="font-semibold text-[#7b19d8]">Điều khoản dịch vụ</span> và{" "}
-              <span className="font-semibold text-[#7b19d8]">Chính sách quyền riêng tư</span>.
+              Tôi đồng ý với{" "}
+              <span className="font-semibold text-[#7b19d8]">
+                Điều khoản dịch vụ
+              </span>{" "}
+              và{" "}
+              <span className="font-semibold text-[#7b19d8]">
+                Chính sách quyền riêng tư
+              </span>
+              .
             </span>
           </label>
           {errors.acceptTerms && (
@@ -325,25 +320,6 @@ export function SignupForm() {
           </button>
         </div>
       </form>
-
-      <div className="space-y-5">
-        <div className="relative py-1">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#e8e0f3]"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase tracking-[0.22em]">
-            <span className="bg-[#fbf9ff] px-4 font-semibold text-[#a89fb9]">
-              Hoặc tiếp tục với
-            </span>
-          </div>
-        </div>
-
-        <GoogleAuthButton
-          disabled={isBusy}
-          label="Đăng ký với Google"
-          referralCode={currentReferralCode?.trim() || undefined}
-        />
-      </div>
 
       <div className="border-t border-[#ebe4f5] pt-5 text-center">
         <p className="text-[#726a83]">

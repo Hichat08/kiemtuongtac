@@ -9,8 +9,6 @@ import EmailVerification from "../models/EmailVerification.js";
 import {
   buildLoginAlertEmail,
   buildPasswordResetOtpEmail,
-  buildSignUpVerificationEmail,
-  buildWelcomeEmail,
   isMailConfigured,
   sendEmail,
 } from "../services/mailService.js";
@@ -28,12 +26,7 @@ const PASSWORD_RESET_CODE_TTL_MS = 10 * 60 * 1000;
 const PASSWORD_RESET_CODE_COOLDOWN_MS = 60 * 1000;
 const PASSWORD_RESET_CODE_MAX_ATTEMPTS = 5;
 const PASSWORD_RESET_TOKEN_TTL_SECONDS = 15 * 60;
-const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_TOKENINFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo";
-const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
-const GOOGLE_STATE_COOKIE = "google_oauth_state";
-const GOOGLE_REFERRAL_COOKIE = "google_oauth_referral";
+const REGISTRATION_PIN_TTL_MS = 10 * 60 * 1000;
 
 const normalizeText = (value = "") => value.trim().replace(/\s+/g, " ");
 const normalizeCredential = (value = "") => normalizeText(value).toLowerCase();
@@ -90,7 +83,7 @@ const createAccessToken = (userId) =>
     { userId },
     // @ts-ignore
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_TTL }
+    { expiresIn: ACCESS_TOKEN_TTL },
   );
 
 const getPasswordResetSecret = () =>
@@ -98,7 +91,8 @@ const getPasswordResetSecret = () =>
   // @ts-ignore
   process.env.ACCESS_TOKEN_SECRET;
 
-const createVerificationCode = () => crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+const createVerificationCode = () =>
+  crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
 const hashVerificationCode = (code) =>
   crypto.createHash("sha256").update(code).digest("hex");
 const createPasswordResetFingerprint = (user) =>
@@ -110,8 +104,8 @@ const createPasswordResetFingerprint = (user) =>
           user?.googleId ||
           user?.updatedAt?.toISOString?.() ||
           user?._id ||
-          ""
-      )
+          "",
+      ),
     )
     .digest("hex");
 const createPasswordResetToken = (user) => {
@@ -128,7 +122,7 @@ const createPasswordResetToken = (user) => {
       fingerprint: createPasswordResetFingerprint(user),
     },
     secret,
-    { expiresIn: PASSWORD_RESET_TOKEN_TTL_SECONDS }
+    { expiresIn: PASSWORD_RESET_TOKEN_TTL_SECONDS },
   );
 };
 
@@ -150,7 +144,8 @@ const getClientIp = (req) =>
   req.socket?.remoteAddress ||
   "Không xác định";
 
-const getUserAgent = (req) => normalizeText(req.get("user-agent") || "Không xác định");
+const getUserAgent = (req) =>
+  normalizeText(req.get("user-agent") || "Không xác định");
 const isSecureRequest = (req) =>
   req.secure ||
   req.get("x-forwarded-proto") === "https" ||
@@ -168,30 +163,6 @@ const getAuthCookieOptions = (req, overrides = {}) => {
   };
 };
 
-const getGoogleCallbackUrl = () => {
-  const configuredCallbackUrl = normalizeText(process.env.GOOGLE_CALLBACK_URL || "");
-
-  if (configuredCallbackUrl) {
-    return configuredCallbackUrl;
-  }
-
-  const port = normalizeText(process.env.PORT || "5001");
-  return `http://localhost:${port}/api/auth/google/callback`;
-};
-
-const getMissingGoogleStartConfig = () => {
-  const missing = [];
-
-  if (!normalizeText(process.env.GOOGLE_CLIENT_ID || "")) {
-    missing.push("GOOGLE_CLIENT_ID");
-  }
-
-  if (!getGoogleCallbackUrl()) {
-    missing.push("GOOGLE_CALLBACK_URL");
-  }
-
-  return missing;
-};
 const getClientUrl = (path = "") => {
   const clientUrl = normalizeText(process.env.CLIENT_URL || "");
 
@@ -214,7 +185,9 @@ const verifyPasswordResetToken = (token) => {
 };
 
 const mergeAuthProvider = (user, provider) => {
-  const providers = new Set(Array.isArray(user.authProviders) ? user.authProviders : []);
+  const providers = new Set(
+    Array.isArray(user.authProviders) ? user.authProviders : [],
+  );
   providers.add(provider);
   user.authProviders = [...providers];
 };
@@ -234,68 +207,27 @@ const sendEmailInBackground = (payload) => {
   });
 };
 
+const generateRegistrationPin = () =>
+  crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+
 const sendAccountVerificationCode = async (user) => {
   if (!user?._id || !user.email) {
     throw new Error("Thiếu thông tin user để gửi mã xác minh.");
   }
 
-  if (!isMailConfigured()) {
-    throw new Error("Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.");
-  }
+  // Generate registration PIN that will be displayed to user
+  const registrationPin = generateRegistrationPin();
+  const expiresAt = new Date(Date.now() + REGISTRATION_PIN_TTL_MS);
 
-  const now = new Date();
-  const existingCode = await EmailVerification.findOne({
-    email: user.email,
-    purpose: "signup",
-  });
-
-  if (existingCode?.resendAvailableAt > now) {
-    return {
-      sent: false,
-      resendAfter: Math.ceil((existingCode.resendAvailableAt.getTime() - now.getTime()) / 1000),
-      expiresIn: Math.max(1, Math.ceil((existingCode.expiresAt.getTime() - now.getTime()) / 1000)),
-    };
-  }
-
-  const verificationCode = createVerificationCode();
-  const verificationRecord = await EmailVerification.findOneAndUpdate(
-    { email: user.email, purpose: "signup" },
-    {
-      userId: user._id,
-      email: user.email,
-      purpose: "signup",
-      codeHash: hashVerificationCode(verificationCode),
-      expiresAt: new Date(Date.now() + SIGNUP_CODE_TTL_MS),
-      resendAvailableAt: new Date(Date.now() + SIGNUP_CODE_COOLDOWN_MS),
-      attempts: 0,
-    },
-    {
-      new: true,
-      upsert: true,
-      setDefaultsOnInsert: true,
-    }
-  );
-
-  try {
-    await sendEmail({
-      to: user.email,
-      ...buildSignUpVerificationEmail({
-        code: verificationCode,
-        expiresInMinutes: Math.round(SIGNUP_CODE_TTL_MS / 60000),
-      }),
-    });
-  } catch (error) {
-    if (verificationRecord) {
-      await verificationRecord.deleteOne();
-    }
-
-    throw error;
-  }
+  // Save PIN to user - NOT sent via email
+  user.registrationPin = registrationPin;
+  user.registrationPinExpiresAt = expiresAt;
+  await user.save();
 
   return {
     sent: true,
-    resendAfter: Math.round(SIGNUP_CODE_COOLDOWN_MS / 1000),
-    expiresIn: Math.round(SIGNUP_CODE_TTL_MS / 1000),
+    pin: registrationPin,
+    expiresIn: Math.round(REGISTRATION_PIN_TTL_MS / 1000),
   };
 };
 
@@ -305,7 +237,9 @@ const sendPasswordResetCode = async (user) => {
   }
 
   if (!isMailConfigured()) {
-    throw new Error("Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.");
+    throw new Error(
+      "Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.",
+    );
   }
 
   const now = new Date();
@@ -317,10 +251,12 @@ const sendPasswordResetCode = async (user) => {
   if (existingCode?.resendAvailableAt > now) {
     return {
       sent: false,
-      resendAfter: Math.ceil((existingCode.resendAvailableAt.getTime() - now.getTime()) / 1000),
+      resendAfter: Math.ceil(
+        (existingCode.resendAvailableAt.getTime() - now.getTime()) / 1000,
+      ),
       expiresIn: Math.max(
         1,
-        Math.ceil((existingCode.expiresAt.getTime() - now.getTime()) / 1000)
+        Math.ceil((existingCode.expiresAt.getTime() - now.getTime()) / 1000),
       ),
     };
   }
@@ -341,7 +277,7 @@ const sendPasswordResetCode = async (user) => {
       new: true,
       upsert: true,
       setDefaultsOnInsert: true,
-    }
+    },
   );
 
   try {
@@ -378,21 +314,32 @@ const issueSession = async (req, res, userId) => {
     expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL),
   });
 
-  res.cookie("refreshToken", refreshToken, getAuthCookieOptions(req, {
-    maxAge: REFRESH_TOKEN_TTL,
-  }));
+  res.cookie(
+    "refreshToken",
+    refreshToken,
+    getAuthCookieOptions(req, {
+      maxAge: REFRESH_TOKEN_TTL,
+    }),
+  );
 
   return accessToken;
 };
 
-const recordSuccessfulLogin = async ({ req, user, provider, isNewUser = false }) => {
+const recordSuccessfulLogin = async ({
+  req,
+  user,
+  provider,
+  isNewUser = false,
+}) => {
   mergeAuthProvider(user, provider);
   user.lastLoginAt = new Date();
   user.lastLoginIp = getClientIp(req);
   user.lastLoginUserAgent = getUserAgent(req);
   await user.save();
 
-  const signedInAt = user.lastLoginAt.toLocaleString("vi-VN", { timeZone: "Asia/Saigon" });
+  const signedInAt = user.lastLoginAt.toLocaleString("vi-VN", {
+    timeZone: "Asia/Saigon",
+  });
 
   sendEmailInBackground(
     Object.assign(
@@ -403,12 +350,18 @@ const recordSuccessfulLogin = async ({ req, user, provider, isNewUser = false })
         userAgent: user.lastLoginUserAgent,
         signedInAt,
       }),
-      { to: user.email }
-    )
+      { to: user.email },
+    ),
   );
 };
 
-const finalizeLogin = async ({ req, res, user, provider, isNewUser = false }) => {
+const finalizeLogin = async ({
+  req,
+  res,
+  user,
+  provider,
+  isNewUser = false,
+}) => {
   const blockedMessage = ensureUserCanAccessApp(user);
 
   if (blockedMessage) {
@@ -429,312 +382,45 @@ const finalizeLogin = async ({ req, res, user, provider, isNewUser = false }) =>
   });
 };
 
-const exchangeGoogleAuthorizationCode = async (code) => {
-  const googleClientId = normalizeText(process.env.GOOGLE_CLIENT_ID || "");
-  const googleClientSecret = normalizeText(process.env.GOOGLE_CLIENT_SECRET || "");
-  const redirectUri = getGoogleCallbackUrl();
-
-  if (!googleClientId || !googleClientSecret || !redirectUri) {
-    throw new Error(
-      "Google OAuth callback chưa được cấu hình đầy đủ trên backend: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET hoặc GOOGLE_CALLBACK_URL."
-    );
-  }
-
-  const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      code,
-      client_id: googleClientId,
-      client_secret: googleClientSecret,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    throw new Error(await tokenRes.text());
-  }
-
-  return tokenRes.json();
-};
-
-const fetchGoogleProfile = async (accessToken) => {
-  const googleClientId = normalizeText(process.env.GOOGLE_CLIENT_ID || "");
-
-  if (!googleClientId) {
-    throw new Error("Google auth chưa được cấu hình trên backend.");
-  }
-
-  const tokenInfoRes = await fetch(
-    `${GOOGLE_TOKENINFO_URL}?access_token=${encodeURIComponent(accessToken)}`
-  );
-
-  if (!tokenInfoRes.ok) {
-    throw new Error("Google token không hợp lệ.");
-  }
-
-  const tokenInfo = await tokenInfoRes.json();
-
-  if (tokenInfo.aud !== googleClientId) {
-    throw new Error("Google token không dành cho ứng dụng này.");
-  }
-
-  const profileRes = await fetch(GOOGLE_USERINFO_URL, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!profileRes.ok) {
-    throw new Error("Không lấy được hồ sơ Google.");
-  }
-
-  const profile = await profileRes.json();
-  const email = normalizeCredential(profile.email);
-  const emailVerified =
-    profile.email_verified === true || profile.email_verified === "true";
-
-  if (!email || !emailVerified) {
-    throw new Error("Tài khoản Google chưa có email đã xác minh.");
-  }
-
-  return {
-    email,
-    googleId: normalizeText(profile.sub),
-    displayName: normalizeText(profile.name) || email.split("@")[0],
-    avatarUrl: normalizeText(profile.picture),
-  };
-};
-
-const findOrCreateGoogleUser = async (googleProfile, { referralCode = "" } = {}) => {
-  let user = await User.findOne({
-    $or: [{ googleId: googleProfile.googleId }, { email: googleProfile.email }],
-  });
-  let isNewUser = false;
-
-  if (!user) {
-    const normalizedReferralCode = normalizeReferralCode(referralCode);
-    const referrer = normalizedReferralCode
-      ? await resolveReferrerByReferralCode(normalizedReferralCode)
-      : null;
-
-    if (normalizedReferralCode && !referrer) {
-      const referralError = new Error("Mã giới thiệu không hợp lệ.");
-      referralError.code = "INVALID_REFERRAL_CODE";
-      referralError.referralCode = normalizedReferralCode;
-      throw referralError;
-    }
-
-    const username = await ensureUniqueUsername(
-      createUsernameSeed(googleProfile.email.split("@")[0]) ||
-        createUsernameSeed(googleProfile.displayName)
-    );
-
-    user = await User.create({
-      username,
-      email: googleProfile.email,
-      displayName: googleProfile.displayName,
-      avatarUrl: googleProfile.avatarUrl || undefined,
-      googleId: googleProfile.googleId,
-      emailVerified: false,
-      authProviders: ["google"],
-      referredBy: referrer?._id ?? null,
-      referralCodeUsed: referrer ? normalizedReferralCode : "",
-    });
-    isNewUser = true;
-  } else {
-    user.googleId = googleProfile.googleId || user.googleId;
-    user.displayName = user.displayName || googleProfile.displayName;
-
-    if (!user.avatarUrl && googleProfile.avatarUrl) {
-      user.avatarUrl = googleProfile.avatarUrl;
-    }
-
-    await user.save();
-  }
-
-  return { user, isNewUser };
-};
-
-export const startGoogleAuth = async (req, res) => {
-  try {
-    const googleClientId = normalizeText(process.env.GOOGLE_CLIENT_ID || "");
-    const redirectUri = getGoogleCallbackUrl();
-    const missing = getMissingGoogleStartConfig();
-    const referralCode = normalizeReferralCode(req.query?.ref);
-
-    if (missing.length > 0) {
-      return res.status(500).json({
-        message: `Google OAuth chưa được cấu hình đầy đủ trên backend: ${missing.join(", ")}`,
-      });
-    }
-
-    const state = crypto.randomBytes(24).toString("hex");
-    res.cookie(
-      GOOGLE_STATE_COOKIE,
-      state,
-      getAuthCookieOptions(req, {
-        maxAge: 10 * 60 * 1000,
-      })
-    );
-
-    if (referralCode) {
-      res.cookie(
-        GOOGLE_REFERRAL_COOKIE,
-        referralCode,
-        getAuthCookieOptions(req, {
-          maxAge: 10 * 60 * 1000,
-        })
-      );
-    } else {
-      res.clearCookie(GOOGLE_REFERRAL_COOKIE, getAuthCookieOptions(req));
-    }
-
-    const params = new URLSearchParams({
-      client_id: googleClientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
-      access_type: "offline",
-      prompt: "select_account",
-      state,
-    });
-
-    return res.redirect(`${GOOGLE_AUTH_URL}?${params.toString()}`);
-  } catch (error) {
-    console.error("Lỗi khi bắt đầu Google OAuth", error);
-    return res.status(500).json({ message: "Không thể bắt đầu đăng nhập Google." });
-  }
-};
-
-export const googleAuthCallback = async (req, res) => {
-  try {
-    const code = normalizeText(req.query?.code || "");
-    const state = normalizeText(req.query?.state || "");
-    const oauthError = normalizeText(req.query?.error || "");
-    const storedState = normalizeText(req.cookies?.[GOOGLE_STATE_COOKIE] || "");
-    const referralCode = normalizeReferralCode(req.cookies?.[GOOGLE_REFERRAL_COOKIE] || "");
-
-    res.clearCookie(GOOGLE_STATE_COOKIE, getAuthCookieOptions(req));
-    res.clearCookie(GOOGLE_REFERRAL_COOKIE, getAuthCookieOptions(req));
-
-    if (oauthError) {
-      return res.redirect(getClientUrl(`/signin?google_error=${encodeURIComponent(oauthError)}`));
-    }
-
-    if (!code || !state || !storedState || state !== storedState) {
-      return res.redirect(getClientUrl("/signin?google_error=state_mismatch"));
-    }
-
-    const tokenData = await exchangeGoogleAuthorizationCode(code);
-    const googleProfile = await fetchGoogleProfile(tokenData.access_token);
-    const { user, isNewUser } = await findOrCreateGoogleUser(googleProfile, {
-      referralCode,
-    });
-
-    if (!user.emailVerified) {
-      await sendAccountVerificationCode(user);
-      return res.redirect(
-        getClientUrl(`/verify-email?email=${encodeURIComponent(user.email)}`)
-      );
-    }
-
-    if (ensureUserCanAccessApp(user)) {
-      const payload = buildLockedAccountPayload(user);
-      const accessToken = await issueSession(req, res, user._id);
-
-      const query = new URLSearchParams();
-      query.set("lock", "1");
-      query.set("access_token", accessToken);
-      if (payload.lockedAt) {
-        query.set("locked_at", payload.lockedAt);
-      }
-      if (payload.lockReason) {
-        query.set("note", payload.lockReason.slice(0, 300));
-      }
-      if (payload.message) {
-        query.set("message", payload.message.slice(0, 300));
-      }
-
-      return res.redirect(getClientUrl(`/account-locked?${query.toString()}`));
-    }
-
-    await recordSuccessfulLogin({ req, user, provider: "google", isNewUser });
-    const accessToken = await issueSession(req, res, user._id);
-
-    const nextUrl = new URL(getClientUrl(getRoleHomePath(user.role)));
-    nextUrl.searchParams.set("access_token", accessToken);
-
-    return res.redirect(nextUrl.toString());
-  } catch (error) {
-    console.error("Lỗi ở Google OAuth callback", error);
-
-    if (error?.code === "INVALID_REFERRAL_CODE") {
-      const query = new URLSearchParams({
-        google_error: "invalid_referral",
-      });
-
-      if (error?.referralCode) {
-        query.set("ref", error.referralCode);
-      }
-
-      return res.redirect(getClientUrl(`/signup?${query.toString()}`));
-    }
-
-    return res.redirect(getClientUrl("/signin?google_error=callback_failed"));
-  }
-};
-
 export const requestSignUpVerificationCode = async (req, res) => {
   try {
     const email = normalizeCredential(req.body?.email);
 
     if (!email) {
-      return res.status(400).json({ message: "Thiếu email để gửi mã xác minh." });
+      return res.status(400).json({ message: "Thiếu email để tạo mã PIN." });
     }
 
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản cần xác minh." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản cần xác minh." });
     }
 
     if (user.emailVerified) {
-      return res.status(400).json({ message: "Tài khoản này đã được xác minh email." });
+      return res
+        .status(400)
+        .json({ message: "Tài khoản này đã được xác minh." });
     }
 
     const result = await sendAccountVerificationCode(user);
 
-    if (!result.sent) {
-      return res.status(429).json({
-        message: `Vui lòng đợi ${result.resendAfter}s trước khi gửi lại mã.`,
-      });
-    }
-
     return res.status(200).json({
-      message: "Mã xác minh đã được gửi tới email của bạn.",
+      message: "Mã PIN đã được tạo.",
+      pin: result.pin,
       expiresIn: result.expiresIn,
-      resendAfter: result.resendAfter,
     });
   } catch (error) {
-    console.error("Lỗi khi gửi mã xác minh đăng ký", error);
+    console.error("Lỗi khi tạo mã PIN", error);
     return res.status(500).json({
-      message: error.message || "Không gửi được mã xác minh qua email.",
+      message: error.message || "Không thể tạo mã PIN.",
     });
   }
 };
 
 export const signUp = async (req, res) => {
   try {
-    if (!isMailConfigured()) {
-      return res.status(503).json({
-        message: "Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.",
-      });
-    }
-
     const {
       username: rawUsername,
       password,
@@ -749,7 +435,8 @@ export const signUp = async (req, res) => {
     const fullName = normalizeText(rawFullName);
     const firstName = normalizeText(rawFirstName);
     const lastName = normalizeText(rawLastName);
-    const displayName = fullName || [lastName, firstName].filter(Boolean).join(" ").trim();
+    const displayName =
+      fullName || [lastName, firstName].filter(Boolean).join(" ").trim();
     const referralCode = normalizeReferralCode(rawReferralCode);
 
     if (!password || !email || !displayName) {
@@ -784,10 +471,10 @@ export const signUp = async (req, res) => {
       return res.status(400).json({ message: "Mã giới thiệu không hợp lệ." });
     }
 
-    // mã hoá password
+    // Mã hóa password
     const hashedPassword = await bcrypt.hash(password, 10); // salt = 10
 
-    // tạo user mới
+    // Tạo user mới
     const user = await User.create({
       username,
       hashedPassword,
@@ -799,19 +486,19 @@ export const signUp = async (req, res) => {
       referralCodeUsed: referrer ? referralCode : "",
     });
 
-    try {
-      await sendAccountVerificationCode(user);
-    } catch (error) {
-      await User.deleteOne({ _id: user._id });
-      throw error;
-    }
+    // Generate and assign PIN (not sent via email)
+    const result = await sendAccountVerificationCode(user);
 
-    // return
+    // Return PIN to user to display
     return res.status(201).json({
       username,
       displayName,
       email,
+      registrationPin: result.pin,
+      expiresIn: result.expiresIn,
       requiresVerification: true,
+      message:
+        "Đăng ký thành công. Vui lòng nhập mã PIN bên dưới để xác minh tài khoản.",
     });
   } catch (error) {
     console.error("Lỗi khi gọi signUp", error);
@@ -822,16 +509,18 @@ export const signUp = async (req, res) => {
 export const verifyEmailCode = async (req, res) => {
   try {
     const email = normalizeCredential(req.body?.email);
-    const code = normalizeText(req.body?.code);
+    const pin = normalizeText(req.body?.code); // PIN is used instead of email verification code
 
-    if (!email || !/^\d{6}$/.test(code)) {
-      return res.status(400).json({ message: "Thiếu email hoặc mã xác minh 6 số." });
+    if (!email || !/^\d{6}$/.test(pin)) {
+      return res.status(400).json({ message: "Thiếu email hoặc mã PIN 6 số." });
     }
 
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản cần xác minh." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản cần xác minh." });
     }
 
     if (user.emailVerified) {
@@ -842,61 +531,38 @@ export const verifyEmailCode = async (req, res) => {
       });
     }
 
-    const emailVerification = await EmailVerification.findOne({
-      email,
-      purpose: "signup",
-    });
-
-    if (!emailVerification) {
-      return res.status(400).json({
-        message: "Không tìm thấy mã xác minh còn hiệu lực. Vui lòng gửi lại mã.",
-      });
+    // Verify PIN from user record
+    if (!user.registrationPin || user.registrationPin !== pin) {
+      return res.status(400).json({ message: "Mã PIN không chính xác." });
     }
 
-    if (emailVerification.expiresAt < new Date()) {
-      await emailVerification.deleteOne();
-      return res.status(400).json({ message: "Mã xác minh đã hết hạn." });
+    // Check if PIN has expired
+    if (
+      user.registrationPinExpiresAt &&
+      user.registrationPinExpiresAt < new Date()
+    ) {
+      user.registrationPin = "";
+      user.registrationPinExpiresAt = null;
+      await user.save();
+      return res.status(400).json({ message: "Mã PIN đã hết hạn." });
     }
 
-    const isCodeCorrect = emailVerification.codeHash === hashVerificationCode(code);
-
-    if (!isCodeCorrect) {
-      emailVerification.attempts += 1;
-
-      if (emailVerification.attempts >= SIGNUP_CODE_MAX_ATTEMPTS) {
-        await emailVerification.deleteOne();
-        return res.status(429).json({
-          message: "Bạn nhập sai mã quá nhiều lần. Vui lòng yêu cầu mã mới.",
-        });
-      }
-
-      await emailVerification.save();
-      return res.status(400).json({ message: "Mã xác minh không chính xác." });
-    }
-
+    // Clear PIN and mark email as verified
     user.emailVerified = true;
+    user.registrationPin = "";
+    user.registrationPinExpiresAt = null;
     await user.save();
-    await emailVerification.deleteOne();
 
-    sendEmailInBackground(
-      Object.assign(buildWelcomeEmail({ displayName: user.displayName }), {
-        to: user.email,
-      })
-    );
-
-    await recordSuccessfulLogin({
-      req,
-      user,
-      provider: isLocalAccount(user) ? "local" : "google",
-    });
+    // Record successful login
+    await recordSuccessfulLogin({ req, user, provider: "local" });
     const accessToken = await issueSession(req, res, user._id);
 
     return res.status(200).json({
-      message: "Xác minh email thành công.",
+      message: "Xác minh tài khoản thành công.",
       accessToken,
     });
   } catch (error) {
-    console.error("Lỗi khi xác minh email", error);
+    console.error("Lỗi khi xác minh PIN", error);
     return res.status(500).json({ message: error.message || "Lỗi hệ thống" });
   }
 };
@@ -905,14 +571,17 @@ export const requestPasswordReset = async (req, res) => {
   try {
     if (!isMailConfigured()) {
       return res.status(503).json({
-        message: "Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.",
+        message:
+          "Email server chưa được cấu hình. Vui lòng bổ sung SMTP trong backend/.env.",
       });
     }
 
     const email = normalizeCredential(req.body?.email);
 
     if (!email) {
-      return res.status(400).json({ message: "Thiếu email để khôi phục mật khẩu." });
+      return res
+        .status(400)
+        .json({ message: "Thiếu email để khôi phục mật khẩu." });
     }
 
     const user = await User.findOne({ email });
@@ -977,7 +646,8 @@ export const verifyPasswordResetCode = async (req, res) => {
       return res.status(400).json({ message: "Mã OTP đã hết hạn." });
     }
 
-    const isCodeCorrect = emailVerification.codeHash === hashVerificationCode(code);
+    const isCodeCorrect =
+      emailVerification.codeHash === hashVerificationCode(code);
 
     if (!isCodeCorrect) {
       emailVerification.attempts += 1;
@@ -1012,14 +682,19 @@ export const verifyPasswordResetCode = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     const token = normalizeText(req.body?.token);
-    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const password =
+      typeof req.body?.password === "string" ? req.body.password : "";
 
     if (!token || !password) {
-      return res.status(400).json({ message: "Thiếu token hoặc mật khẩu mới." });
+      return res
+        .status(400)
+        .json({ message: "Thiếu token hoặc mật khẩu mới." });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 6 ký tự." });
+      return res
+        .status(400)
+        .json({ message: "Mật khẩu mới phải có ít nhất 6 ký tự." });
     }
 
     let payload;
@@ -1032,8 +707,14 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    if (!payload || typeof payload === "string" || payload.purpose !== "password-reset") {
-      return res.status(400).json({ message: "Token đặt lại mật khẩu không hợp lệ." });
+    if (
+      !payload ||
+      typeof payload === "string" ||
+      payload.purpose !== "password-reset"
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Token đặt lại mật khẩu không hợp lệ." });
     }
 
     const user = await User.findById(payload.userId);
@@ -1046,7 +727,8 @@ export const resetPassword = async (req, res) => {
 
     if (payload.fingerprint !== createPasswordResetFingerprint(user)) {
       return res.status(400).json({
-        message: "Liên kết đặt lại mật khẩu đã được dùng hoặc không còn hiệu lực.",
+        message:
+          "Liên kết đặt lại mật khẩu đã được dùng hoặc không còn hiệu lực.",
       });
     }
 
@@ -1062,7 +744,8 @@ export const resetPassword = async (req, res) => {
     res.clearCookie("refreshToken", getAuthCookieOptions(req));
 
     return res.status(200).json({
-      message: "Mật khẩu đã được cập nhật. Bạn có thể đăng nhập lại ngay bây giờ.",
+      message:
+        "Mật khẩu đã được cập nhật. Bạn có thể đăng nhập lại ngay bây giờ.",
     });
   } catch (error) {
     console.error("Lỗi khi đặt lại mật khẩu", error);
@@ -1075,7 +758,9 @@ export const resetPassword = async (req, res) => {
 export const signIn = async (req, res) => {
   try {
     // lấy inputs
-    const credential = normalizeCredential(req.body?.credential ?? req.body?.username);
+    const credential = normalizeCredential(
+      req.body?.credential ?? req.body?.username,
+    );
     const { password } = req.body;
 
     if (!credential || !password) {
@@ -1096,17 +781,23 @@ export const signIn = async (req, res) => {
     }
 
     if (!user.emailVerified) {
-      const verificationResult = await sendAccountVerificationCode(user).catch((error) => ({
-        error: error.message || "Không gửi được mã xác minh.",
-      }));
+      const verificationResult = await sendAccountVerificationCode(user).catch(
+        (error) => ({
+          error: error.message || "Không thể tạo mã PIN.",
+        }),
+      );
 
       return res.status(403).json({
-        message: "Tài khoản chưa được xác minh email.",
+        message: "Tài khoản chưa được xác minh.",
         requiresVerification: true,
         email: user.email,
-        resendAfter:
-          verificationResult && "resendAfter" in verificationResult
-            ? verificationResult.resendAfter
+        pin:
+          verificationResult && "pin" in verificationResult
+            ? verificationResult.pin
+            : undefined,
+        expiresIn:
+          verificationResult && "expiresIn" in verificationResult
+            ? verificationResult.expiresIn
             : undefined,
         sendCodeError:
           verificationResult && "error" in verificationResult
@@ -1115,9 +806,9 @@ export const signIn = async (req, res) => {
       });
     }
 
-    if (!user.hashedPassword || !isLocalAccount(user)) {
+    if (!user.hashedPassword) {
       return res.status(400).json({
-        message: "Tài khoản này đang đăng nhập bằng Google. Vui lòng dùng Google để tiếp tục.",
+        message: "Tài khoản không hợp lệ. Vui lòng liên hệ admin.",
       });
     }
 
@@ -1134,49 +825,6 @@ export const signIn = async (req, res) => {
   } catch (error) {
     console.error("Lỗi khi gọi signIn", error);
     return res.status(500).json({ message: "Lỗi hệ thống" });
-  }
-};
-
-export const signInWithGoogle = async (req, res) => {
-  try {
-    const accessToken = normalizeText(req.body?.accessToken);
-    const referralCode = normalizeReferralCode(req.body?.referralCode);
-
-    if (!accessToken) {
-      return res.status(400).json({ message: "Thiếu access token từ Google." });
-    }
-
-    const googleProfile = await fetchGoogleProfile(accessToken);
-    const { user, isNewUser } = await findOrCreateGoogleUser(googleProfile, {
-      referralCode,
-    });
-
-    if (!user.emailVerified) {
-      await sendAccountVerificationCode(user);
-      return res.status(403).json({
-        message: "Tài khoản Google mới cần xác minh email trước khi vào app.",
-        requiresVerification: true,
-        email: user.email,
-      });
-    }
-
-    return finalizeLogin({
-      req,
-      res,
-      user,
-      provider: "google",
-      isNewUser,
-    });
-  } catch (error) {
-    console.error("Lỗi khi gọi signInWithGoogle", error);
-    if (error?.code === "INVALID_REFERRAL_CODE") {
-      return res.status(400).json({
-        message: "Mã giới thiệu không hợp lệ.",
-      });
-    }
-    return res.status(401).json({
-      message: error.message || "Không thể đăng nhập bằng Google.",
-    });
   }
 };
 
@@ -1213,7 +861,9 @@ export const refreshToken = async (req, res) => {
     const session = await Session.findOne({ refreshToken: token });
 
     if (!session) {
-      return res.status(403).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+      return res
+        .status(403)
+        .json({ message: "Token không hợp lệ hoặc đã hết hạn" });
     }
 
     // kiểm tra hết hạn chưa
@@ -1221,10 +871,14 @@ export const refreshToken = async (req, res) => {
       return res.status(403).json({ message: "Token đã hết hạn." });
     }
 
-    const user = await User.findById(session.userId).select("role moderationStatus moderationNote lockedAt");
+    const user = await User.findById(session.userId).select(
+      "role moderationStatus moderationNote lockedAt",
+    );
 
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản cho phiên đăng nhập này." });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy tài khoản cho phiên đăng nhập này." });
     }
 
     const blockedMessage = ensureUserCanAccessApp(user);
