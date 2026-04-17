@@ -11,10 +11,8 @@ import {
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { toast } from "sonner";
 import { z } from "zod";
 
-import { persistLockedAccountSnapshot } from "@/lib/account-lock";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -57,7 +55,6 @@ export function SignupForm() {
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<SignUpFormValues>({
     defaultValues: {
@@ -95,7 +92,6 @@ export function SignupForm() {
   };
 
   const isBusy = isSubmitting || loading;
-  const currentReferralCode = watch("referralCode");
 
   return (
     <div className="space-y-10">
