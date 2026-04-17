@@ -1,4 +1,7 @@
-import { clearLockedAccountSnapshot, readLockedAccountSnapshot } from "@/lib/account-lock";
+import {
+  clearLockedAccountSnapshot,
+  readLockedAccountSnapshot,
+} from "@/lib/account-lock";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useChatStore } from "@/stores/useChatStore";
 import { useEffect, useState } from "react";
@@ -74,20 +77,15 @@ const ProtectedRoute = ({ requireAdmin = false }: ProtectedRouteProps) => {
     return <Navigate to="/signin" replace />;
   }
 
-  if (user?.emailVerified === false) {
-    return (
-      <Navigate
-        to={`/verify-email?email=${encodeURIComponent(user.email)}`}
-        replace
-      />
-    );
-  }
-
   if (requireAdmin && user?.role !== "admin") {
     return <Navigate to="/" replace />;
   }
 
-  if (user?.role !== "admin" && user?.moderationStatus === "locked" && !isSupportChatPath) {
+  if (
+    user?.role !== "admin" &&
+    user?.moderationStatus === "locked" &&
+    !isSupportChatPath
+  ) {
     return <Navigate to="/account-locked" replace />;
   }
 

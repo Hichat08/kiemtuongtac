@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ const inputClassName =
 
 export function SigninForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signIn, loading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const rememberedCredential = getRememberedCredential();
@@ -47,6 +48,12 @@ export function SigninForm() {
       rememberMe: Boolean(rememberedCredential),
     },
   });
+
+  const nextPath = searchParams.get("next")?.trim() ?? "";
+  const validNextPath =
+    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+      ? nextPath
+      : "";
 
   const onSubmit = async ({
     credential,
@@ -64,9 +71,12 @@ export function SigninForm() {
     const isSuccess = await signIn(normalizedCredential, password);
 
     if (isSuccess) {
-      navigate(getRoleHomePath(useAuthStore.getState().user?.role), {
-        replace: true,
-      });
+      navigate(
+        validNextPath || getRoleHomePath(useAuthStore.getState().user?.role),
+        {
+          replace: true,
+        },
+      );
     }
   };
 

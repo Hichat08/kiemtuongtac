@@ -474,32 +474,20 @@ export const signUp = async (req, res) => {
     // Mã hóa password
     const hashedPassword = await bcrypt.hash(password, 10); // salt = 10
 
-    // Tạo user mới
+    // Tạo user mới và đánh dấu đã xác minh email để bỏ qua bước nhập mã
     const user = await User.create({
       username,
       hashedPassword,
       email,
       displayName,
-      emailVerified: false,
+      emailVerified: true,
       authProviders: ["local"],
       referredBy: referrer?._id ?? null,
       referralCodeUsed: referrer ? referralCode : "",
     });
 
-    // Generate and assign PIN (not sent via email)
-    const result = await sendAccountVerificationCode(user);
-
-    // Return PIN to user to display
-    return res.status(201).json({
-      username,
-      displayName,
-      email,
-      registrationPin: result.pin,
-      expiresIn: result.expiresIn,
-      requiresVerification: true,
-      message:
-        "Đăng ký thành công. Vui lòng nhập mã PIN bên dưới để xác minh tài khoản.",
-    });
+    await finalizeLogin({ req, res, user, provider: "local", isNewUser: true });
+    return null; // response already sent by finalizeLogin
   } catch (error) {
     console.error("Lỗi khi gọi signUp", error);
     return res.status(500).json({ message: error.message || "Lỗi hệ thống" });
@@ -592,12 +580,6 @@ export const requestPasswordReset = async (req, res) => {
       });
     }
 
-    if (!user.emailVerified) {
-      return res.status(400).json({
-        message: "Tài khoản này chưa xác minh email nên chưa thể đổi mật khẩu.",
-      });
-    }
-
     const result = await sendPasswordResetCode(user);
 
     return res.status(200).json({
@@ -624,7 +606,7 @@ export const verifyPasswordResetCode = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user || !user.emailVerified) {
+    if (!user) {
       return res.status(400).json({
         message: "Không tìm thấy yêu cầu khôi phục còn hiệu lực.",
       });
@@ -719,7 +701,7 @@ export const resetPassword = async (req, res) => {
 
     const user = await User.findById(payload.userId);
 
-    if (!user || !user.emailVerified) {
+    if (!user) {
       return res.status(400).json({
         message: "Không tìm thấy tài khoản hợp lệ để đặt lại mật khẩu.",
       });
@@ -778,32 +760,6 @@ export const signIn = async (req, res) => {
       return res
         .status(401)
         .json({ message: "email, username hoặc password không chính xác" });
-    }
-
-    if (!user.emailVerified) {
-      const verificationResult = await sendAccountVerificationCode(user).catch(
-        (error) => ({
-          error: error.message || "Không thể tạo mã PIN.",
-        }),
-      );
-
-      return res.status(403).json({
-        message: "Tài khoản chưa được xác minh.",
-        requiresVerification: true,
-        email: user.email,
-        pin:
-          verificationResult && "pin" in verificationResult
-            ? verificationResult.pin
-            : undefined,
-        expiresIn:
-          verificationResult && "expiresIn" in verificationResult
-            ? verificationResult.expiresIn
-            : undefined,
-        sendCodeError:
-          verificationResult && "error" in verificationResult
-            ? verificationResult.error
-            : undefined,
-      });
     }
 
     if (!user.hashedPassword) {

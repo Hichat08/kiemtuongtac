@@ -45,7 +45,11 @@ type SignUpFormValues = z.infer<typeof signUpSchema>;
 const inputClassName =
   "w-full h-14 rounded-[1.75rem] border-0 bg-white px-5 text-[15px] text-[#2f2441] ring-1 ring-black/[0.06] shadow-[0_12px_30px_-20px_rgba(123,25,216,0.28)] outline-none transition-all placeholder:text-[#b9b0c9] focus:ring-[2.5px] focus:ring-[#7b19d8]/18";
 
-export function SignupForm() {
+interface SignupFormProps {
+  nextPath?: string;
+}
+
+export function SignupForm({ nextPath }: SignupFormProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUp, loading } = useAuthStore();
@@ -87,7 +91,12 @@ export function SignupForm() {
     });
 
     if (isSuccess) {
-      navigate(`/verify-email?email=${encodeURIComponent(email.trim())}`);
+      const validNextPath =
+        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+          ? nextPath
+          : null;
+
+      navigate(validNextPath ?? `/`, { replace: true });
     }
   };
 

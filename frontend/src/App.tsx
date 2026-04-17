@@ -13,11 +13,14 @@ import { useAuthStore } from "./stores/useAuthStore";
 import { useSocketStore } from "./stores/useSocketStore";
 import { useThemeStore } from "./stores/useThemeStore";
 
-const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
-const ForgotPasswordOtpPage = lazy(() => import("./pages/ForgotPasswordOtpPage"));
+const ForgotPasswordOtpPage = lazy(
+  () => import("./pages/ForgotPasswordOtpPage"),
+);
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
-const ResetPasswordSuccessPage = lazy(() => import("./pages/ResetPasswordSuccessPage"));
+const ResetPasswordSuccessPage = lazy(
+  () => import("./pages/ResetPasswordSuccessPage"),
+);
 const AccountLockedPage = lazy(() => import("./pages/AccountLockedPage"));
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -33,8 +36,12 @@ const DepositSuccessPage = lazy(() => import("./pages/DepositSuccessPage"));
 const WithdrawPage = lazy(() => import("./pages/WithdrawPage"));
 const WithdrawalVerifyPage = lazy(() => import("./pages/WithdrawalVerifyPage"));
 const AddBankAccountPage = lazy(() => import("./pages/AddBankAccountPage"));
-const WithdrawalPendingPage = lazy(() => import("./pages/WithdrawalPendingPage"));
-const WithdrawalSuccessPage = lazy(() => import("./pages/WithdrawalSuccessPage"));
+const WithdrawalPendingPage = lazy(
+  () => import("./pages/WithdrawalPendingPage"),
+);
+const WithdrawalSuccessPage = lazy(
+  () => import("./pages/WithdrawalSuccessPage"),
+);
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
 const AdminPage = lazy(() => import("./pages/AdminPage"));
@@ -42,19 +49,33 @@ const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
 const AdminTasksPage = lazy(() => import("./pages/AdminTasksPage"));
 const AdminSupportPage = lazy(() => import("./pages/AdminSupportPage"));
 const AdminCommunityPage = lazy(() => import("./pages/AdminCommunityPage"));
-const AdminEventsPromotionsPage = lazy(() => import("./pages/AdminEventsPromotionsPage"));
+const AdminEventsPromotionsPage = lazy(
+  () => import("./pages/AdminEventsPromotionsPage"),
+);
 const AdminBroadcastNotificationsPage = lazy(
-  () => import("./pages/AdminBroadcastNotificationsPage")
+  () => import("./pages/AdminBroadcastNotificationsPage"),
 );
 const AdminDepositsPage = lazy(() => import("./pages/AdminDepositsPage"));
-const AdminDepositAccountsPage = lazy(() => import("./pages/AdminDepositAccountsPage"));
-const AdminBankAccountsPage = lazy(() => import("./pages/AdminBankAccountsPage"));
+const AdminDepositAccountsPage = lazy(
+  () => import("./pages/AdminDepositAccountsPage"),
+);
+const AdminBankAccountsPage = lazy(
+  () => import("./pages/AdminBankAccountsPage"),
+);
 const AdminWithdrawalsPage = lazy(() => import("./pages/AdminWithdrawalsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
-const AdminSettingsGeneralPage = lazy(() => import("./pages/AdminSettingsGeneralPage"));
-const AdminSettingsFinancePage = lazy(() => import("./pages/AdminSettingsFinancePage"));
-const AdminSettingsTasksPage = lazy(() => import("./pages/AdminSettingsTasksPage"));
-const AdminSettingsSecurityPage = lazy(() => import("./pages/AdminSettingsSecurityPage"));
+const AdminSettingsGeneralPage = lazy(
+  () => import("./pages/AdminSettingsGeneralPage"),
+);
+const AdminSettingsFinancePage = lazy(
+  () => import("./pages/AdminSettingsFinancePage"),
+);
+const AdminSettingsTasksPage = lazy(
+  () => import("./pages/AdminSettingsTasksPage"),
+);
+const AdminSettingsSecurityPage = lazy(
+  () => import("./pages/AdminSettingsSecurityPage"),
+);
 
 const preloadUserRoutes = () => {
   void import("./pages/ChatAppPage");
@@ -185,68 +206,28 @@ function App() {
       <BrowserRouter>
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            <Route
-              path="/signin"
-              element={<SignInPage />}
-            />
-            <Route
-              path="/signup"
-              element={<SignUpPage />}
-            />
-            <Route
-              path="/verify-email"
-              element={<VerifyEmailPage />}
-            />
-            <Route
-              path="/forgot-password"
-              element={<ForgotPasswordPage />}
-            />
+            <Route path="/signin" element={<SignInPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route
               path="/forgot-password/verify"
               element={<ForgotPasswordOtpPage />}
             />
-            <Route
-              path="/reset-password"
-              element={<ResetPasswordPage />}
-            />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route
               path="/reset-password/success"
               element={<ResetPasswordSuccessPage />}
             />
-            <Route
-              path="/account-locked"
-              element={<AccountLockedPage />}
-            />
+            <Route path="/account-locked" element={<AccountLockedPage />} />
 
             <Route element={<ProtectedRoute />}>
-              <Route
-                path="/"
-                element={<HomePage />}
-              />
-              <Route
-                path="/chat"
-                element={<ChatAppPage />}
-              />
-              <Route
-                path="/chat/support"
-                element={<SupportChatPage />}
-              />
-              <Route
-                path="/tasks"
-                element={<TasksPage />}
-              />
-              <Route
-                path="/tasks/:taskId"
-                element={<TaskDetailPage />}
-              />
-              <Route
-                path="/wallet"
-                element={<WalletPage />}
-              />
-              <Route
-                path="/wallet/deposit"
-                element={<DepositPage />}
-              />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/chat" element={<ChatAppPage />} />
+              <Route path="/chat/support" element={<SupportChatPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/wallet/deposit" element={<DepositPage />} />
               <Route
                 path="/wallet/deposit/payment"
                 element={<DepositPaymentPage />}
@@ -259,10 +240,7 @@ function App() {
                 path="/wallet/deposit/success/:requestId"
                 element={<DepositSuccessPage />}
               />
-              <Route
-                path="/wallet/withdraw"
-                element={<WithdrawPage />}
-              />
+              <Route path="/wallet/withdraw" element={<WithdrawPage />} />
               <Route
                 path="/wallet/withdraw/verify"
                 element={<WithdrawalVerifyPage />}
@@ -279,45 +257,19 @@ function App() {
                 path="/wallet/withdraw/success/:requestId"
                 element={<WithdrawalSuccessPage />}
               />
-              <Route
-                path="/account"
-                element={<AccountRoute />}
-              />
-              <Route
-                path="/profile"
-                element={<ProfilePage />}
-              />
+              <Route path="/account" element={<AccountRoute />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             <Route element={<ProtectedRoute requireAdmin />}>
-              <Route
-                path="/admin"
-                element={<AdminPage />}
-              />
-              <Route
-                path="/admin/users"
-                element={<AdminUsersPage />}
-              />
-              <Route
-                path="/admin/tasks"
-                element={<AdminTasksPage />}
-              />
-              <Route
-                path="/admin/support"
-                element={<AdminSupportPage />}
-              />
-              <Route
-                path="/admin/community"
-                element={<AdminCommunityPage />}
-              />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/tasks" element={<AdminTasksPage />} />
+              <Route path="/admin/support" element={<AdminSupportPage />} />
+              <Route path="/admin/community" element={<AdminCommunityPage />} />
               <Route
                 path="/admin/community/gifts/new"
-                element={
-                  <Navigate
-                    to="/admin/community"
-                    replace
-                  />
-                }
+                element={<Navigate to="/admin/community" replace />}
               />
               <Route
                 path="/admin/events-promotions"
@@ -327,10 +279,7 @@ function App() {
                 path="/admin/broadcast-notifications"
                 element={<AdminBroadcastNotificationsPage />}
               />
-              <Route
-                path="/admin/deposits"
-                element={<AdminDepositsPage />}
-              />
+              <Route path="/admin/deposits" element={<AdminDepositsPage />} />
               <Route
                 path="/admin/deposit-accounts"
                 element={<AdminDepositAccountsPage />}
@@ -343,10 +292,7 @@ function App() {
                 path="/admin/withdrawals"
                 element={<AdminWithdrawalsPage />}
               />
-              <Route
-                path="/admin/settings"
-                element={<AdminSettingsPage />}
-              />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
               <Route
                 path="/admin/settings/general"
                 element={<AdminSettingsGeneralPage />}

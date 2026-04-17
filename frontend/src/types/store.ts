@@ -10,14 +10,15 @@ export interface AuthState {
   setAccessToken: (accessToken: string) => void;
   setUser: (user: User) => void;
   clearState: () => void;
-  requestSignUpCode: (email: string) => Promise<boolean>;
-  verifyEmail: (email: string, code: string) => Promise<boolean>;
   signUp: (payload: SignUpPayload) => Promise<boolean>;
   signIn: (credential: string, password: string) => Promise<boolean>;
   signInWithGoogle: (accessToken: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   fetchMe: (options?: { silent?: boolean }) => Promise<void>;
   refresh: () => Promise<void>;
+  // Deprecated: Email verification skipped during signup
+  requestSignUpCode: (email: string) => Promise<{ success: boolean }>;
+  verifyEmail: (email: string, code: string) => Promise<boolean>;
 }
 
 export interface SignUpPayload {
@@ -56,7 +57,7 @@ export interface ChatState {
   sendDirectMessage: (
     recipientId: string,
     content: string,
-    imgUrl?: string
+    imgUrl?: string,
   ) => Promise<void>;
   sendGroupMessage: (
     conversationId: string,
@@ -67,21 +68,21 @@ export interface ChatState {
       recipientCount: number;
       message: string;
       title?: string;
-    }
+    },
   ) => Promise<void>;
   // add message
   addMessage: (message: Message) => Promise<void>;
   updateMessage: (
     conversationId: string,
     messageId: string,
-    updater: (message: Message) => Message
+    updater: (message: Message) => Message,
   ) => void;
   // update convo
   updateConversation: (
-    conversation: Partial<Conversation> & Pick<Conversation, "_id">
+    conversation: Partial<Conversation> & Pick<Conversation, "_id">,
   ) => void;
   resetConversationState: (
-    conversation: Partial<Conversation> & Pick<Conversation, "_id">
+    conversation: Partial<Conversation> & Pick<Conversation, "_id">,
   ) => void;
   removeConversationBySystemKey: (systemKey: string) => void;
   markAsSeen: () => Promise<void>;
@@ -89,7 +90,7 @@ export interface ChatState {
   createConversation: (
     type: "group" | "direct",
     name: string,
-    memberIds: string[]
+    memberIds: string[],
   ) => Promise<void>;
 }
 

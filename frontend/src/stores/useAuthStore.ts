@@ -37,15 +37,6 @@ const handleLockedAccountError = (error: unknown) => {
   return true;
 };
 
-const redirectToVerifyEmail = (email?: string) => {
-  if (typeof window === "undefined" || !email) {
-    return;
-  }
-
-  const nextUrl = `/verify-email?email=${encodeURIComponent(email)}`;
-  window.location.assign(nextUrl);
-};
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -64,47 +55,19 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: null, user: null, loading: false });
         useChatStore.getState().reset();
       },
-      requestSignUpCode: async (email) => {
-        try {
-          set({ loading: true });
-          await authService.requestSignUpCode(email);
-          toast.success("Mã xác minh 6 số đã được gửi tới email của bạn.");
-          return true;
-        } catch (error) {
-          console.error(error);
-          toast.error(getErrorMessage(error, "Không gửi được mã xác minh."));
-          return false;
-        } finally {
-          set({ loading: false });
-        }
-      },
-      verifyEmail: async (email, code) => {
-        try {
-          set({ loading: true });
-
-          const { accessToken } = await authService.verifyEmail(email, code);
-          get().setAccessToken(accessToken);
-          await get().fetchMe();
-          void useChatStore.getState().fetchConversations();
-
-          toast.success("Xác minh email thành công.");
-          return true;
-        } catch (error) {
-          console.error(error);
-          toast.error(getErrorMessage(error, "Xác minh email không thành công."));
-          return false;
-        } finally {
-          set({ loading: false });
-        }
-      },
       signUp: async (payload: SignUpPayload) => {
         try {
           set({ loading: true });
 
-          //  gọi api
-          await authService.signUp(payload);
+          const response = await authService.signUp(payload);
 
-          toast.success("Tài khoản đã được tạo. Vui lòng nhập mã OTP từ email.");
+          if (response?.accessToken) {
+            get().setAccessToken(response.accessToken);
+            await get().fetchMe();
+            void useChatStore.getState().fetchConversations();
+          }
+
+          toast.success("Đăng ký thành công.");
           return true;
         } catch (error) {
           console.error(error);
@@ -145,12 +108,6 @@ export const useAuthStore = create<AuthState>()(
           if (handleLockedAccountError(error)) {
             return false;
           }
-          if (axios.isAxiosError(error) && error.response?.data?.requiresVerification) {
-            const email = error.response?.data?.email;
-            toast.info("Tài khoản chưa xác minh. Vui lòng nhập mã OTP từ email.");
-            redirectToVerifyEmail(email);
-            return false;
-          }
           toast.error(getErrorMessage(error, "Đăng nhập không thành công!"));
           return false;
         } finally {
@@ -162,8 +119,14 @@ export const useAuthStore = create<AuthState>()(
           get().clearState();
           set({ loading: true });
 
-          const { accessToken, isNewUser, accountLocked, message, lockReason, lockedAt } =
-            await authService.signInWithGoogle(googleAccessToken);
+          const {
+            accessToken,
+            isNewUser,
+            accountLocked,
+            message,
+            lockReason,
+            lockedAt,
+          } = await authService.signInWithGoogle(googleAccessToken);
           get().setAccessToken(accessToken);
 
           await get().fetchMe();
@@ -184,7 +147,7 @@ export const useAuthStore = create<AuthState>()(
           toast.success(
             isNewUser
               ? "Tài khoản Google đã được tạo và đăng nhập thành công."
-              : "Đăng nhập Google thành công."
+              : "Đăng nhập Google thành công.",
           );
           return true;
         } catch (error) {
@@ -192,13 +155,9 @@ export const useAuthStore = create<AuthState>()(
           if (handleLockedAccountError(error)) {
             return false;
           }
-          if (axios.isAxiosError(error) && error.response?.data?.requiresVerification) {
-            const email = error.response?.data?.email;
-            toast.info("Tài khoản Google mới cần xác minh email trước khi vào app.");
-            redirectToVerifyEmail(email);
-            return false;
-          }
-          toast.error(getErrorMessage(error, "Đăng nhập Google không thành công."));
+          toast.error(
+            getErrorMessage(error, "Đăng nhập Google không thành công."),
+          );
           return false;
         } finally {
           set({ loading: false });
@@ -229,7 +188,10 @@ export const useAuthStore = create<AuthState>()(
           if (handleLockedAccountError(error)) {
             return;
           }
-          if (axios.isAxiosError(error) && [401, 403, 404].includes(error.response?.status ?? 0)) {
+          if (
+            axios.isAxiosError(error) &&
+            [401, 403, 404].includes(error.response?.status ?? 0)
+          ) {
             set({ user: null, accessToken: null });
           }
           if (!options?.silent) {
@@ -249,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
           const refreshPayload =
             typeof refreshResponse === "string"
               ? { accessToken: refreshResponse }
-              : refreshResponse ?? {};
+              : (refreshResponse ?? {});
           const { accessToken, accountLocked, message, lockReason, lockedAt } =
             refreshPayload;
 
@@ -274,7 +236,10 @@ export const useAuthStore = create<AuthState>()(
               note: lockReason ?? "",
               lockedAt: lockedAt ?? null,
             });
-            if (currentPath !== "/chat/support" && currentPath !== "/account-locked") {
+            if (
+              currentPath !== "/chat/support" &&
+              currentPath !== "/account-locked"
+            ) {
               redirectToAccountLockedPage();
               return;
             }
@@ -290,10 +255,17 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
         }
       },
+      // Deprecated: Email verification is now skipped during signup
+      requestSignUpCode: async (_email: string) => {
+        return { success: false };
+      },
+      verifyEmail: async (_email: string, _code: string) => {
+        return false;
+      },
     }),
     {
       name: "auth-storage",
       partialize: (state) => ({ user: state.user }), // chỉ persist user
-    }
-  )
+    },
+  ),
 );
